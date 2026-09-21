@@ -49,6 +49,7 @@
         <label class="toggle"><input type="checkbox" id="cap-reticula" checked><span>Retícula</span></label>
         <label class="toggle"><input type="checkbox" id="cap-ruta" checked><span>Ruta</span></label>
         <label class="toggle"><input type="checkbox" id="cap-enjambre" checked><span>Flujo</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-tiendas" checked><span>Tiendas</span></label>
         <label class="toggle"><input type="checkbox" id="cap-etiquetas" checked><span>Etiquetas</span></label>
         <label class="toggle"><input type="checkbox" id="cap-giro"><span>Giro auto</span></label>
       </div>
@@ -57,6 +58,11 @@
     <section class="bloque crece">
       <h2>Puntos turísticos <span id="conteo-pois" class="chip"></span></h2>
       <div id="lista-pois" class="lista"></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Tiendas con diorama <span id="conteo-tiendas" class="chip"></span></h2>
+      <div id="lista-tiendas" class="lista lista-tiendas"></div>
     </section>
 
     <section class="bloque">
@@ -119,6 +125,27 @@
       <span><b>H</b> sólo el mapa</span>
     </div>
   </footer>
+
+  <div id="visor" class="oculto" role="dialog" aria-modal="true" aria-labelledby="visor-nombre" aria-hidden="true">
+    <div class="visor-caja">
+      <div class="visor-escena">
+        <canvas id="visor-lienzo"></canvas>
+        <div id="visor-progreso" class="visor-progreso"><i></i></div>
+        <p id="visor-estado" class="visor-estado"></p>
+        <p class="visor-pista">Arrastra para girar · rueda para acercar</p>
+        <button id="visor-girar" class="visor-accion" type="button" aria-pressed="false" aria-label="Giro automático">
+          <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+        </button>
+      </div>
+      <div class="visor-info">
+        <button id="visor-cerrar" class="cerrar" type="button" aria-label="Volver al mapa">×</button>
+        <span class="visor-oficio" id="visor-oficio"></span>
+        <h2 id="visor-nombre"></h2>
+        <p class="visor-meta"><span id="visor-barrio"></span> · <span id="visor-horario"></span></p>
+        <p class="visor-desc" id="visor-desc"></p>
+      </div>
+    </div>
+  </div>
 
   <div id="cargando">
     <div class="carga-box">

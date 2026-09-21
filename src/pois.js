@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { project, sceneY, lerp, clamp } from './config.js';
 import { elevationAtWorld } from './terrain.js';
 import { POIS, CATEGORIAS, intensidad, visitantes } from './data.js';
+import { TIENDAS, COLOR_TIENDA } from './tiendas.js';
 import { glowSprite } from './lines.js';
 
 const BEAM_VERT = /* glsl */`
@@ -213,3 +214,98 @@ export function formatoVisitantes(n) {
 }
 
 export { visitantes, clamp };
+
+/**
+ * Marcadores de las tiendas destacadas: ámbar cálido —el color de los
+ * dioramas— y con forma de vitrina, para distinguirlos de los puntos
+ * turísticos aunque compartan mapa.
+ */
+export function buildTiendas() {
+  const group = new THREE.Group();
+  group.name = 'tiendas';
+  const marcadores = [];
+  const pickables = [];
+
+  const color = new THREE.Color(COLOR_TIENDA);
+  const cajaGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+  const anilloGeo = new THREE.RingGeometry(0.3, 0.38, 6);
+  anilloGeo.rotateX(-Math.PI / 2);
+  const hazGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 12, 1, true);
+  hazGeo.translate(0, 0.5, 0);
+  const pickGeo = new THREE.SphereGeometry(0.5, 10, 8);
+
+  for (const t of TIENDAS) {
+    const p = project(t.lon, t.lat);
+    const y = sceneY(elevationAtWorld(p.x, p.z));
+
+    const nodo = new THREE.Group();
+    nodo.position.set(p.x, y, p.z);
+    nodo.userData.tienda = t;
+
+    const caja = new THREE.Mesh(
+      cajaGeo,
+      new THREE.MeshBasicMaterial({ color: color.clone().lerp(new THREE.Color(0xffffff), 0.45) }),
+    );
+    caja.position.y = 0.75;
+    caja.rotation.set(Math.PI / 5, Math.PI / 4, 0);
+    nodo.add(caja);
+
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowSprite(), color, transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    halo.position.y = 0.75;
+    nodo.add(halo);
+
+    const haz = new THREE.Mesh(hazGeo, new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: color.clone() }, uOpacity: { value: 0.55 } },
+      vertexShader: BEAM_VERT,
+      fragmentShader: BEAM_FRAG,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    nodo.add(haz);
+
+    const anillo = new THREE.Mesh(anilloGeo, new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.8,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    }));
+    anillo.position.y = 0.02;
+    nodo.add(anillo);
+
+    const pick = new THREE.Mesh(pickGeo, new THREE.MeshBasicMaterial({ visible: false }));
+    pick.position.y = 0.7;
+    pick.userData.tiendaId = t.id;
+    nodo.add(pick);
+    pickables.push(pick);
+
+    group.add(nodo);
+    marcadores.push({ tienda: t, nodo, caja, halo, haz, anillo });
+  }
+
+  function update(t, { seleccionada = null, escala = 1 } = {}) {
+    for (const m of marcadores) {
+      const activa = seleccionada === m.tienda.id;
+      const pulso = 0.5 + 0.5 * Math.sin(t * 1.6 + m.nodo.position.x);
+      const k = (activa ? 1.45 : 1) * escala;
+
+      m.caja.rotation.y = t * 0.6;
+      m.caja.position.y = (0.72 + 0.06 * pulso) * escala;
+      m.caja.scale.setScalar(k);
+      m.halo.position.y = m.caja.position.y;
+      m.halo.scale.setScalar((1.1 + 0.12 * pulso) * k);
+      m.haz.scale.set(k, 1.9 * (activa ? 1.35 : 1), k);
+      m.haz.material.uniforms.uOpacity.value = 0.34 + 0.16 * pulso;
+      m.anillo.rotation.y = -t * 0.35;
+      m.anillo.scale.setScalar((1.25 + 0.1 * pulso) * k);
+      m.anillo.material.opacity = activa ? 1 : 0.55 + 0.25 * pulso;
+    }
+  }
+
+  function posicion(id) {
+    const m = marcadores.find((x) => x.tienda.id === id);
+    return m ? m.nodo.position.clone() : null;
+  }
+
+  return { group, marcadores, pickables, update, posicion };
+}

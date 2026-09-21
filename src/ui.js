@@ -3,6 +3,7 @@ import {
   AFLUENCIA, TOTAL_MES, MAX_TOTAL, visitantes, mesPico, promedioAnual,
 } from './data.js';
 import { formatoVisitantes } from './pois.js';
+import { TIENDAS } from './tiendas.js';
 
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 const $ = (id) => document.getElementById(id);
@@ -11,7 +12,7 @@ const ES_EVENTO = /Feria|Festival|Semana Santa|Mundial/;
 
 const esPantallaAngosta = () => window.matchMedia('(max-width: 860px)').matches;
 
-export function crearUI({ onMes, onSelect, onCapa, onVolar, onPlay }) {
+export function crearUI({ onMes, onSelect, onCapa, onVolar, onPlay, onTienda }) {
   let mes = 0;
   let seleccion = null;
   let reproduciendo = false;
@@ -107,11 +108,24 @@ export function crearUI({ onMes, onSelect, onCapa, onVolar, onPlay }) {
     }
   }
 
+  /* --------------------------- lista de tiendas -------------------------- */
+  const listaTiendas = $('lista-tiendas');
+  $('conteo-tiendas').textContent = TIENDAS.length;
+  for (const t of TIENDAS) {
+    const b = document.createElement('button');
+    b.className = 'item';
+    b.type = 'button';
+    b.innerHTML = `<span class="punto"></span><span class="nom">${t.nombre}</span><span class="val">3D</span>`;
+    b.title = `${t.oficio} · ${t.barrio}`;
+    b.addEventListener('click', () => onTienda(t.id));
+    listaTiendas.appendChild(b);
+  }
+
   /* ------------------------------- capas --------------------------------- */
   const CAPAS = {
     'cap-curvas': 'curvas', 'cap-rios': 'rios', 'cap-vias': 'vias',
     'cap-reticula': 'reticula', 'cap-ruta': 'ruta', 'cap-enjambre': 'enjambre',
-    'cap-etiquetas': 'etiquetas', 'cap-giro': 'giro',
+    'cap-tiendas': 'tiendas', 'cap-etiquetas': 'etiquetas', 'cap-giro': 'giro',
   };
   for (const [id, clave] of Object.entries(CAPAS)) {
     const input = $(id);

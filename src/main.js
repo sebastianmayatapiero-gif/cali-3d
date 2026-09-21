@@ -9,7 +9,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MAP_W, MAP_H, sceneY, clamp } from './config.js';
 import { buildTerrain, buildBase, buildContours, buildCityGrid } from './terrain.js';
 import { buildRios, buildVias, buildRuta, lineMaterials } from './lines.js';
-import { buildPois, buildEnjambre } from './pois.js';
+import { buildPois, buildEnjambre, buildTiendas } from './pois.js';
+import { crearVisor } from './visor.js';
+import { tienda } from './tiendas.js';
 import { crearEtiquetas } from './labels.js';
 import { crearUI } from './ui.js';
 import { POIS, TOTAL_MES, MAX_TOTAL } from './data.js';
@@ -119,6 +121,10 @@ paso('Ubicando puntos turísticos…');
 const pois = buildPois();
 scene.add(pois.group);
 
+const tiendas = buildTiendas();
+capas.tiendas = tiendas.group;
+scene.add(tiendas.group);
+
 const enjambre = buildEnjambre({ porPoi: 90 });
 capas.enjambre = enjambre.points;
 scene.add(enjambre.points);
@@ -142,8 +148,12 @@ composer.addPass(new OutputPass());
 
 /* -------------------------- etiquetas e interfaz --------------------- */
 let seleccion = null;
+let seleccionTienda = null;
 let hover = null;
 let reproduciendo = false;
+
+// El diorama de cada tienda vive en su propia escena, encima del mapa.
+const visor = crearVisor({ onCerrar: () => { seleccionTienda = null; } });
 
 const etiquetas = crearEtiquetas(
   document.getElementById('etiquetas'), pois.marcadores, (id) => seleccionar(id, true),
@@ -153,6 +163,7 @@ const ui = crearUI({
   onMes: (m) => etiquetas.setMes(m),
   onSelect: (id) => seleccionar(id, true),
   onVolar: (id) => volarA(id, 2.6),
+  onTienda: (id) => abrirTienda(id),
   onPlay: (on) => { reproduciendo = on; },
   onCapa: (clave, valor) => {
     if (clave === 'etiquetas') { etiquetas.setVisibles(valor); return; }
@@ -205,6 +216,27 @@ function seleccionar(id, volar = false) {
   if (id && volar) volarA(id, 5.0);
 }
 
+/** Vuela hasta la tienda y abre su diorama al llegar. */
+function abrirTienda(id) {
+  const t = tienda(id);
+  if (!t) return;
+  seleccionTienda = id;
+  seleccionar(null);
+  const destino = tiendas.posicion(id);
+  if (destino) {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).setY(0);
+    if (dir.lengthSq() < 1e-4) dir.set(0.7, 0, 1);
+    dir.normalize().multiplyScalar(4.2);
+    vuelo.activo = true;
+    vuelo.inicio = reloj.elapsedTime;
+    vuelo.desdePos.copy(camera.position);
+    vuelo.aPos.copy(destino.clone().add(dir).setY(destino.y + 2.6));
+    vuelo.desdeTgt.copy(controls.target);
+    vuelo.aTgt.copy(destino.clone().setY(destino.y + 0.4));
+  }
+  setTimeout(() => visor.abrir(t), destino ? 700 : 0);
+}
+
 /* ------------------------------ picking ------------------------------ */
 const raycaster = new THREE.Raycaster();
 raycaster.params.Points.threshold = 0.2;
@@ -222,6 +254,13 @@ function poiBajoPuntero() {
   return hits.length ? hits[0].object.userData.poiId : null;
 }
 
+function tiendaBajoPuntero() {
+  if (!capas.tiendas.visible) return null;
+  raycaster.setFromCamera(puntero, camera);
+  const hits = raycaster.intersectObjects(tiendas.pickables, false);
+  return hits.length ? hits[0].object.userData.tiendaId : null;
+}
+
 renderer.domElement.addEventListener('pointerdown', (ev) => {
   arrastre = { x: ev.clientX, y: ev.clientY };
 });
@@ -229,7 +268,7 @@ renderer.domElement.addEventListener('pointerdown', (ev) => {
 renderer.domElement.addEventListener('pointermove', (ev) => {
   actualizarPuntero(ev);
   hover = poiBajoPuntero();
-  renderer.domElement.style.cursor = hover ? 'pointer' : 'grab';
+  renderer.domElement.style.cursor = hover || tiendaBajoPuntero() ? 'pointer' : 'grab';
 });
 
 renderer.domElement.addEventListener('pointerup', (ev) => {
@@ -238,6 +277,8 @@ renderer.domElement.addEventListener('pointerup', (ev) => {
   arrastre = null;
   if (movido > 6 || ev.button !== 0) return;
   actualizarPuntero(ev);
+  const idTienda = tiendaBajoPuntero();
+  if (idTienda) { abrirTienda(idTienda); return; }
   const id = poiBajoPuntero();
   if (id) seleccionar(id, true);
   else seleccionar(null);
@@ -251,7 +292,7 @@ window.addEventListener('keydown', (ev) => {
   else if (k === ' ') { ev.preventDefault(); ui.setPlay(!ui.reproduciendo); }
   else if (k === 'arrowright') ui.setMes(ui.mes + 1, true);
   else if (k === 'arrowleft') ui.setMes(ui.mes - 1, true);
-  else if (k === 'escape') seleccionar(null);
+  else if (k === 'escape') { if (visor.abierto) visor.cerrar(); else seleccionar(null); }
   else if (k === 'h') ui.alternarInterfaz();
   else if (k === 'tab') {
     ev.preventDefault();
@@ -311,6 +352,7 @@ function animar() {
   const escala = clamp(0.4 + dist / 26, 0.55, 2.0);
 
   pois.update(ui.mes, t, { seleccionado: seleccion, hover, escala });
+  if (capas.tiendas.visible) tiendas.update(t, { seleccionada: seleccionTienda, escala });
   if (capas.enjambre.visible) enjambre.update(ui.mes, t);
   if (capas.ruta.visible) capas.ruta.userData.update(t, 0.22 + 0.78 * intensidadGlobal());
 

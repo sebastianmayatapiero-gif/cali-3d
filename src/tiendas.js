@@ -19,7 +19,7 @@ export const TIENDAS = [
     lon: -76.5389,
     horario: 'Lun a sáb · 6:00 – 16:00',
     desc: 'Puesto de corte tradicional en la galería más antigua del sur, con res, cerdo y embutidos de la región.',
-    modelo: null, // 'assets/modelos/carniceria-alameda.glb'
+    modelo: 'assets/modelos/carniceria-alameda.glb',
   },
   {
     id: 'frutas-santa-elena',
@@ -68,6 +68,11 @@ export const TIENDAS = [
 ];
 
 export const COLOR_TIENDA = 0xffb03a;
+
+/** Miniatura que se muestra flotando sobre el punto en el mapa. */
+export function miniatura(id) {
+  return `assets/miniaturas/${id}.webp`;
+}
 
 export function tienda(id) {
   return TIENDAS.find((t) => t.id === id) ?? null;

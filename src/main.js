@@ -12,7 +12,7 @@ import { buildRios, buildVias, buildRuta, lineMaterials } from './lines.js';
 import { buildPois, buildEnjambre, buildTiendas } from './pois.js';
 import { crearVisor } from './visor.js';
 import { tienda } from './tiendas.js';
-import { crearEtiquetas } from './labels.js';
+import { crearEtiquetas, crearTarjetas } from './labels.js';
 import { crearUI } from './ui.js';
 import { POIS, TOTAL_MES, MAX_TOTAL } from './data.js';
 
@@ -159,6 +159,10 @@ const etiquetas = crearEtiquetas(
   document.getElementById('etiquetas'), pois.marcadores, (id) => seleccionar(id, true),
 );
 
+const tarjetas = crearTarjetas(
+  document.getElementById('etiquetas'), tiendas.marcadores, (id) => abrirTienda(id),
+);
+
 const ui = crearUI({
   onMes: (m) => etiquetas.setMes(m),
   onSelect: (id) => seleccionar(id, true),
@@ -167,6 +171,7 @@ const ui = crearUI({
   onPlay: (on) => { reproduciendo = on; },
   onCapa: (clave, valor) => {
     if (clave === 'etiquetas') { etiquetas.setVisibles(valor); return; }
+    if (clave === 'tiendas') { capas.tiendas.visible = valor; tarjetas.setVisibles(valor); return; }
     if (clave === 'giro') { controls.autoRotate = valor; return; }
     if (capas[clave]) capas[clave].visible = valor;
   },
@@ -352,13 +357,14 @@ function animar() {
   const escala = clamp(0.4 + dist / 26, 0.55, 2.0);
 
   pois.update(ui.mes, t, { seleccionado: seleccion, hover, escala });
-  if (capas.tiendas.visible) tiendas.update(t, { seleccionada: seleccionTienda, escala });
+  if (capas.tiendas.visible) tiendas.update(t, { seleccionada: seleccionTienda, escala, dist });
   if (capas.enjambre.visible) enjambre.update(ui.mes, t);
   if (capas.ruta.visible) capas.ruta.userData.update(t, 0.22 + 0.78 * intensidadGlobal());
 
   fill.intensity = 34 + Math.sin(t * 0.8) * 8;
   controls.update();
-  etiquetas.update(camera, seleccion);
+  const ocupado = tarjetas.update(camera, seleccionTienda);
+  etiquetas.update(camera, seleccion, ocupado);
   composer.render();
 }
 

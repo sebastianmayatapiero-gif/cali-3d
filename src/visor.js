@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /**
@@ -66,6 +67,7 @@ export function crearVisor({ onCerrar } = {}) {
   const loader = new GLTFLoader();
   const draco = new DRACOLoader().setDecoderPath('vendor/three/examples/jsm/libs/draco/gltf/');
   loader.setDRACOLoader(draco);
+  loader.setMeshoptDecoder(MeshoptDecoder);
 
   /* --------------------------- ciclo de vida ---------------------------- */
 
@@ -155,7 +157,7 @@ export function crearVisor({ onCerrar } = {}) {
 
   /** Centra el modelo en el origen y sitúa la cámara para que quepa entero. */
   function encuadrar(obj, camaraGltf) {
-    const caja = new THREE.Box3().setFromObject(obj);
+    const caja = cajaDelDiorama(obj);
     const tam = caja.getSize(new THREE.Vector3());
     const centro = caja.getCenter(new THREE.Vector3());
     obj.position.sub(centro); // el diorama gira sobre su propio centro
@@ -228,6 +230,42 @@ export function crearVisor({ onCerrar } = {}) {
 }
 
 /* ------------------------------ auxiliares ------------------------------ */
+
+/**
+ * Caja de encuadre del diorama, ignorando el decorado.
+ *
+ * Los .glb exportados desde Blender suelen traer el set del render —piso
+ * enorme, paredes de fondo— y si se encuadra sobre todo eso el diorama queda
+ * diminuto. Se mide cada malla por separado y se descartan las que son
+ * desproporcionadas frente a la mediana.
+ */
+function cajaDelDiorama(obj) {
+  const completa = new THREE.Box3().setFromObject(obj);
+  const cajas = [];
+  obj.updateWorldMatrix(true, true);
+  obj.traverse((n) => {
+    if (!n.isMesh || !n.geometry) return;
+    const b = new THREE.Box3().setFromObject(n);
+    if (b.isEmpty()) return;
+    cajas.push({ b, d: b.getSize(new THREE.Vector3()).length() });
+  });
+  if (cajas.length < 6) return completa;
+
+  const orden = cajas.map((c) => c.d).sort((a, b) => a - b);
+  const mediana = orden[Math.floor(orden.length / 2)] || 1;
+  const limite = mediana * 6;
+
+  const util = new THREE.Box3();
+  let contadas = 0;
+  for (const c of cajas) {
+    if (c.d > limite) continue; // decorado: piso, paredes, telón de fondo
+    util.union(c.b);
+    contadas++;
+  }
+  // Si el recorte deja fuera casi todo, el criterio no aplica a este modelo.
+  if (contadas < cajas.length * 0.3 || util.isEmpty()) return completa;
+  return util;
+}
 
 function tieneLuces(raiz) {
   let hay = false;

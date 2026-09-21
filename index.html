@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cali 3D · Mapa turístico vivo</title>
+<meta name="description" content="Mapa 3D interactivo del valle de Cali: relieve, puntos turísticos y flujo de turistas mes a mes.">
+<link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="escena"></div>
+  <div id="etiquetas" aria-hidden="false"></div>
+
+  <div id="barra-acciones">
+    <button id="btn-menu" class="accion" type="button" aria-label="Mostrar u ocultar los paneles" aria-pressed="true">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <button id="btn-ocultar" class="accion" type="button" aria-label="Ver sólo el mapa" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>
+    </button>
+  </div>
+  <div id="velo" hidden></div>
+
+  <header id="marca">
+    <div class="marca-txt">
+      <h1>CALI<span>3D</span></h1>
+      <p>Relieve del valle · puntos turísticos · flujo de visitantes</p>
+    </div>
+  </header>
+
+  <aside id="panel-izq" class="panel">
+    <section class="bloque">
+      <h2>Capas</h2>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="cap-curvas" checked><span>Curvas</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-rios" checked><span>Ríos</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-vias" checked><span>Vías</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-reticula" checked><span>Retícula</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-ruta" checked><span>Ruta</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-enjambre" checked><span>Flujo</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-etiquetas" checked><span>Etiquetas</span></label>
+        <label class="toggle"><input type="checkbox" id="cap-giro"><span>Giro auto</span></label>
+      </div>
+    </section>
+
+    <section class="bloque crece">
+      <h2>Puntos turísticos <span id="conteo-pois" class="chip"></span></h2>
+      <div id="lista-pois" class="lista"></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Categorías</h2>
+      <div id="leyenda" class="leyenda"></div>
+    </section>
+  </aside>
+
+  <aside id="panel-det" class="panel oculto" aria-live="polite">
+    <button id="cerrar-det" class="cerrar" aria-label="Cerrar ficha">×</button>
+    <div class="det-cat"><span class="punto"></span><span id="det-categoria"></span></div>
+    <h2 id="det-nombre"></h2>
+    <p id="det-desc" class="det-desc"></p>
+
+    <div class="det-metricas">
+      <div class="metrica">
+        <span class="metrica-val" id="det-visitantes">—</span>
+        <span class="metrica-tag">visitantes <em id="det-mes"></em></span>
+      </div>
+      <div class="metrica">
+        <span class="metrica-val" id="det-delta">—</span>
+        <span class="metrica-tag">frente al promedio anual</span>
+      </div>
+    </div>
+
+    <h3>Afluencia mes a mes</h3>
+    <div id="det-grafica" class="grafica"></div>
+    <p class="det-pie">Pico anual: <strong id="det-pico"></strong> · Total año: <strong id="det-total"></strong></p>
+
+    <div class="det-acciones">
+      <button id="det-volar" class="btn">Acercar al punto</button>
+    </div>
+  </aside>
+
+  <footer id="tiempo" class="panel">
+    <div class="tiempo-cab">
+      <div>
+        <span class="tiempo-lbl">Época del año</span>
+        <strong id="temp-nombre">—</strong>
+        <em id="temp-detalle"></em>
+      </div>
+      <div class="tiempo-total">
+        <span class="tiempo-lbl">Visitantes del mes</span>
+        <strong id="total-mes">—</strong>
+      </div>
+    </div>
+
+    <div class="linea-tiempo">
+      <button id="btn-play" class="btn redondo" aria-label="Reproducir el año">▶</button>
+      <div class="meses" id="meses"></div>
+    </div>
+
+    <div class="atajos">
+      <span><b>Arrastrar</b> girar</span>
+      <span><b>Rueda</b> zoom</span>
+      <span><b>Click derecho</b> desplazar</span>
+      <span><b>Click</b> en un punto para ampliarlo</span>
+      <span><b>R</b> reiniciar vista</span>
+      <span><b>Espacio</b> animar el año</span>
+      <span><b>H</b> sólo el mapa</span>
+    </div>
+  </footer>
+
+  <div id="cargando">
+    <div class="carga-box">
+      <div class="carga-barra"><i></i></div>
+      <p id="carga-txt">Generando el relieve del valle…</p>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+  <script>
+    // Aviso claro si three.js (CDN) o WebGL no están disponibles.
+    function falloCarga(msg) {
+      var c = document.getElementById('cargando');
+      if (!c || window.__caliListo) return;
+      c.classList.add('error');
+      document.getElementById('carga-txt').textContent = msg;
+    }
+    window.addEventListener('error', function (e) {
+      if (e.target && e.target.tagName === 'SCRIPT') {
+        falloCarga('No se pudo cargar three.js. Asegúrate de servir la carpeta completa (incluido vendor/) por http://.');
+      }
+    }, true);
+    setTimeout(function () {
+      falloCarga('La escena está tardando demasiado. Verifica que el navegador soporte WebGL y que se esté sirviendo por http:// (no file://).');
+    }, 20000);
+  </script>
+</body>
+</html>
